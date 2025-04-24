@@ -1,6 +1,6 @@
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
-from utils import get_embeddings, init_openai, init_supabase
+from src.utils import get_embeddings, init_openai, init_supabase
 import json
 
 

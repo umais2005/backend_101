@@ -1,16 +1,8 @@
 from openai import AsyncOpenAI
 import os
 from dotenv import load_dotenv
-import supabase
-load_dotenv()
+load_dotenv("../.env")
 
-def init_supabase() -> supabase.Client:
-    supabase_client = supabase.create_client(
-        supabase_url="https://xkbdivjljqvlmfsysyno.supabase.co",
-        supabase_key=os.getenv("SUPABASE_API_KEY")
-        )
-    return supabase_client
-    
 def init_openai()-> AsyncOpenAI:
     openai_client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),

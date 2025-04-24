@@ -1,25 +1,21 @@
 import pandas as pd
 import asyncio
-from groq import Groq
-from openai import AsyncOpenAI
-import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
-import supabase
-from utils import get_embeddings, init_openai, init_supabase
+from src.utils import get_embeddings, init_openai, init_supabase
 load_dotenv()
 
 supabase_client  = init_supabase()
 
-# @dataclass
-# class Product:
-#     name: str
-#     description: str
-#     short_description: str
-#     category: str
-#     price: float
-#     url_key: str
-#     embeddings : list[float]
+@dataclass
+class Product:
+    name: str
+    description: str
+    short_description: str
+    category: str
+    price: float
+    url_key: str
+    embedding : list[float]
 semaphore = asyncio.Semaphore(10)
 
 async def process_and_store_product(product: pd.Series):
@@ -36,15 +32,14 @@ async def process_and_store_product(product: pd.Series):
                 "url_key" : product['url_key'],
                 "embedding" : embedding,
             }
-            supabase_client.table("products").upsert(data).execute()
+            product = Product(**data) # To validate the data
+            supabase_client.table("products").upsert(product.to_dict()).execute()
             print("Inserted Succesfully product:",product['url_key'])
         except Exception as e:
             print(f"Error inserting product {product['name']}: {e}")
         
 
-async def main(start, end=None):
-    df = pd.read_csv("products_cleaned.csv")
-
+async def main(df, start, end=None):
     tasks = []
     if end is None:
         end = len(df)
@@ -54,7 +49,10 @@ async def main(start, end=None):
         tasks.append(task)
         # if len(tasks) >= :
         #     break
-        
     await asyncio.gather(*tasks)
 
-asyncio.run(main(1523))
+if __name__ == "__main__":
+        
+    df = pd.read_csv("products_cleaned.csv")
+
+    asyncio.run(main(df))

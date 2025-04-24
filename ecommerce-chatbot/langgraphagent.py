@@ -5,7 +5,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_groq import ChatGroq
-from tools import get_relevant_products
+from src.chatbot.tools import get_relevant_products
 load_dotenv()
 
 class State(TypedDict):
