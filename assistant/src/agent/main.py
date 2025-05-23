@@ -16,16 +16,25 @@ import pickle
 
 from pydantic_ai.tools import RunContext
 
+@dataclass
+class Deps:
+    service: any
+    user_id: str
+
 
 system_prompt = "You are a helpful Ai assistant. Answer concisely to the user"
 model = GroqModel('llama-3.3-70b-versatile', provider=GroqProvider(api_key=os.getenv("GROQ")))
 agent = Agent(model, 
               system_prompt=system_prompt)
 
-
-def get_emails(ctx: RunContext, user_id: str, n: int = 5):
+@agent.tool()
+def get_emails(ctx: RunContext, n: int = 5):
+    """
+    Get the latest emails from the user's Gmail inbox.
+    Args:
+        n (int): The number of emails to retrieve. default is 5.
+    """
     service = ctx.service
-
     results = service.users().messages().list(userId='me', maxResults=n).execute()
     messages = results.get('messages', [])
 
