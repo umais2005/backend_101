@@ -1,0 +1,39 @@
+[
+    {
+        "parts": [
+            {
+                "content": "You are a helpful Ai assistant, which helps the user to get and summarise latest emails, set event in the calendar, and answer general queries.",
+                "timestamp": "2025-05-23T10:43:17.927688Z",
+                "dynamic_ref": null,
+                "part_kind": "system-prompt"
+            },
+            {
+                "content": "Tell me a joke.",
+                "timestamp": "2025-05-23T10:43:17.927694Z",
+                "part_kind": "user-prompt"
+            }
+        ],
+        "instructions": null,
+        "kind": "request"
+    },
+    {
+        "parts": [
+            {
+                "content": "Here's one:\n\nWhat do you call a fake noodle?\n\nAn impasta!\n\nI hope that made you smile. Do you want to hear another one or is there something else I can help you with, like checking your emails or setting an event in your calendar?",
+                "part_kind": "text"
+            }
+        ],
+        "usage": {
+            "requests": 1,
+            "request_tokens": 70,
+            "response_tokens": 55,
+            "total_tokens": 125,
+            "details": null
+        },
+        "model_name": "llama-3.3-70b-versatile",
+        "timestamp": "2025-05-23T10:43:18Z",
+        "kind": "response",
+        "vendor_details": null,
+        "vendor_id": "chatcmpl-18566730-64e8-4afc-a0fb-06f990df6a84"
+    }
+]

@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from src.agent.main import agent, Deps
 import httpx
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,6 +15,8 @@ import os
 app = FastAPI(title="My Personal Chat App")
 
 # Google OAuth2 credentials
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "your_google_client_id_here")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "your_google_client_secret_here")
 SCOPES = [
@@ -42,6 +45,8 @@ user_credentials = None
 user_logged_in = False
 google_access_token = None
 user_info = None
+gmail_service = None
+calendar_service = None
 
 # Models for data
 class ChatMessage(BaseModel):
@@ -68,7 +73,7 @@ async def login():
 
     auth_url , _ = flow.authorization_url(
             access_type='offline',  # Enables refresh token
-        include_granted_scopes='true', 
+        include_granted_scopes='false', 
         prompt='consent'  # Forces the user to re-consent
     )
     
@@ -104,20 +109,20 @@ async def google_callback(request: Request):
         # Get the credentials
         user_credentials = flow.credentials
         # Use the credentials to get user info
-        user_info = await get_user_info()
+        user_info = await get_user_info(user_credentials)
         
         user_logged_in = True
         
-        return RedirectResponse(url="http://localhost:8000/", status_code=302)
-
+        response = RedirectResponse(url="http://localhost:8000/", status_code=302)
+        response.set_cookie(key="credentials", value=user_credentials.to_json(), httponly=True)
+        
+        return response
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
             
 
-async def get_user_info():
-    global user_credentials
-
+async def get_user_info(user_credentials):
     if not user_credentials:
         print("No credentials found.")
         return None
@@ -135,6 +140,8 @@ async def get_user_info():
             return None
 
     try:
+        calendar_service = build("calendar", "v3", credentials=user_credentials)
+        
         # Use the credentials to access the Google OAuth2 API
         service = build('oauth2', 'v2', credentials=user_credentials)
         user_info = service.userinfo().get().execute()
@@ -152,12 +159,23 @@ async def chat(message: ChatMessage):
     It can use your Google credentials to access emails, calendar, etc.
     """
     global user_logged_in, google_access_token, user_info, user_credentials
+    connected = bool(user_info)
+    
+    if user_logged_in:
+        deps = Deps(credentials=user_credentials, user_email=user_info.get("email") if user_info else None, connected=connected)
+    else:
+        deps = Deps(credentials=None, user_email=None)
+    
+    result = await agent.run(message.message, deps=deps)
+    return result
     
     # Check if you're logged in
-    if not user_logged_in:
-        raise HTTPException(status_code=401, detail="Please login with Google first. Go to /login")
+    # if not user_logged_in:
+    #     raise HTTPException(status_code=401, detail="Please login with Google first. Go to /login")
+    # Run the agent with the message
+    # result = await agent.run_stream(message.message, deps=deps)
     
-    gmail_service = build("gmail", "v1", credentials=user_credentials)
+     
 
 
 # Check if you're logged in
