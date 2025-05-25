@@ -1,0 +1,132 @@
+[
+  {
+    "parts": [
+      {
+        "content": "You are a helpful AI assistant, which helps the user to get and summarise latest emails, set event in the calendar, and answer general queries.If you do not have access to these tools, this means that user has not connected their Google account yet.You can tell the user to connect their Google account to use these features or you can answer general queries without using tools.",
+        "timestamp": "2025-05-25T14:04:43.657992Z",
+        "dynamic_ref": null,
+        "part_kind": "system-prompt"
+      },
+      {
+        "content": "Hi, please summarize last 6 emails",
+        "timestamp": "2025-05-25T14:04:43.657999Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "<function=get_emails {\"n\": 6}</function>",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 343,
+      "response_tokens": 13,
+      "total_tokens": 356,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T14:04:44Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-66a77b17-8d0e-4874-8bb4-dfd2f992e29d"
+  },
+  {
+    "parts": [
+      {
+        "content": "hey",
+        "timestamp": "2025-05-25T14:11:52.201587Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "How can I help you today? If you're interested in checking your emails, I can try to retrieve them for you. Please note that you'll need to have your Google account connected for me to access your emails. Would you like to connect your account or is there something else I can help you with?",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 366,
+      "response_tokens": 63,
+      "total_tokens": 429,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T14:11:53Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-bdbcfc28-b4cb-4f53-8c65-d60e461b9c7e"
+  },
+  {
+    "parts": [
+      {
+        "content": "please summarize emails",
+        "timestamp": "2025-05-25T14:15:29.972395Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "<function=get_emails {\"n\": 5}</function>",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 441,
+      "response_tokens": 13,
+      "total_tokens": 454,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T14:15:30Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-814ee1cf-0f55-4b36-98eb-615382f2aa06"
+  },
+  {
+    "parts": [
+      {
+        "content": "please summarize emails",
+        "timestamp": "2025-05-25T14:16:23.178653Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "<function=get_emails {\"n\": 5}</function>",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 466,
+      "response_tokens": 13,
+      "total_tokens": 479,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T14:16:23Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-044c56a3-07c8-453b-815d-6e7f58bcfa00"
+  }
+]

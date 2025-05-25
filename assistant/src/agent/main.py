@@ -20,86 +20,132 @@ import json
 
 from pydantic_ai.tools import RunContext
 
+
 @dataclass
 class Deps:
     credentials: any
     user_email: str
-    connected : bool = False
-
-async def if_google_connected(ctx : RunContext[Deps], tool_defs: list[ToolDefinition]
-) -> Union[list[ToolDefinition], None]:
-    # user_info = await get_user_info(ctx.credentials)
-    if not ctx.deps.connected:
-        return [tool_def for tool_def in tool_defs if tool_def.name not in ("get_emails", "set_events")]
-    return tool_defs
-
-system_prompt = "You are a helpful Ai assistant, which helps the user to get and summarise latest emails, set event in the calendar, and answer general queries."
-model = GroqModel('llama-3.3-70b-versatile', provider=GroqProvider(api_key=os.getenv("GROQ")))
-agent = Agent(model, 
-              system_prompt=system_prompt)
-
-@agent.tool()
-def get_emails(ctx: RunContext[Deps], n: int = 5):
-    """
-    Get the latest emails from the user's Gmail inbox.
-    Args:
-        n (int): The number of emails to retrieve. default is 5.
-    """
-    service = build('gmail', 'v1', credentials=ctx.deps.credentials)
-    results = service.users().messages().list(userId='me', maxResults=n).execute()
-    messages = results.get('messages', [])
-
-    emails = []
-    for msg in messages:
-        msg_data = service.users().messages().get(userId='me', id=msg['id'], format='full').execute()
-        headers = msg_data['payload']['headers']
-        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
-        sender = next((h['value'] for h in headers if h['name'] == 'From'), '')
-        snippet = msg_data.get('snippet', '')
-        emails.append({'subject': subject, 'from': sender, 'snippet': snippet})
-
-    return emails
+    connected: bool = False
 
 
-async def get_history(chat_id: str):
-    try:
-        async with aiofiles.open(f"{chat_id}.json", "r") as f:
-            contents = await f.read()
-            messages_json = json.loads(contents)
-            history = ModelMessagesTypeAdapter.validate_python(messages_json)
-            return history
-    except FileNotFoundError:
-        return []  # No history yet
-    except Exception as e:
-        print(f"Error reading history: {e}")
-        return []
+class GmailAgent:
+    def __init__(self, groq_api_key: str = None):
+        """Initialize the Gmail Agent with dependencies."""
+        # Initialize model and agent
+        groq_key = groq_api_key or os.getenv("GROQ")
+        self.model = GroqModel('llama-3.3-70b-versatile', provider=GroqProvider(api_key=groq_key))
+        
+        self.system_prompt = (
+            "You are a helpful AI assistant, which helps the user to get and summarise "
+            "latest emails, set event in the calendar, and answer general queries."
+            "If you do not have access to these tools, this means that user has not connected their Google account yet."
+            "You can tell the user to connect their Google account to use these features or you can answer general queries without using tools."
+            "Otherwise, you have access to the following tools: "
+            "get_emails: Get the latest emails from the user's Gmail inbox, "
+            "set_events: Set an event in the user's Google Calendar."
+            "Then use the tool output to give a final answer to the user."
+        )
+        
+        self.agent = Agent(self.model, system_prompt=self.system_prompt, prepare_tools=self.filter_tools_by_connection)
+        
+        # Register tools
+        self._register_tools()
+    
+    def _register_tools(self):
+        """Register all agent tools."""
+        @self.agent.tool()
+        def get_emails(ctx: RunContext[Deps], n: int = 5):
+            """
+            Get the latest emails from the user's Gmail inbox.
+            Args:
+                n (int): The number of emails to retrieve. default is 5.
+            """
+            return self._get_emails_impl(ctx, n)
+    
+    def _get_emails_impl(self, ctx: RunContext[Deps], n: int = 5):
+        """Implementation of get_emails tool."""
+        service = build('gmail', 'v1', credentials=ctx.deps.credentials)
+        results = service.users().messages().list(userId='me', maxResults=n).execute()
+        messages = results.get('messages', [])
 
-async def save_history(chat_id: str, messages):
-    async with aiofiles.open(f"{chat_id}.json", "w") as f:
-        json_dump = json.dumps(to_jsonable_python(messages), indent=2)
-        await f.write(json_dump)
+        emails = []
+        for msg in messages:
+            msg_data = service.users().messages().get(userId='me', id=msg['id'], format='full').execute()
+            headers = msg_data['payload']['headers']
+            subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
+            sender = next((h['value'] for h in headers if h['name'] == 'From'), '')
+            snippet = msg_data.get('snippet', '')
+            emails.append({'subject': subject, 'from': sender, 'snippet': snippet})
 
-async def delete_history(chat_id: str):
-    async with aiofiles.open(f"{chat_id}.json", "w") as f:
-        await f.write("[]")
+        return emails
+    
+    async def filter_tools_by_connection(self, ctx: RunContext[Deps], tool_defs: list[ToolDefinition]) -> Union[list[ToolDefinition], None]:
+        """Filter available tools based on Google connection status."""
+        if not ctx.deps.connected:
+            return [tool_def for tool_def in tool_defs if tool_def.name not in ("get_emails", "set_events")]
+        return tool_defs
+    
+    async def get_history(self, history_id: str):
+        """Retrieve chat history from file."""
+        os.makedirs("./chat_histories", exist_ok=True)
+        path = f"./chat_histories/{history_id}.json"
+        try:
+            async with aiofiles.open(path, "r") as f:
+                contents = await f.read()
+                messages_json = json.loads(contents)
+                history = ModelMessagesTypeAdapter.validate_python(messages_json)
+                return history
+        except FileNotFoundError:
+            async with aiofiles.open(path, "w") as f:
+                json.dump([], f)
+            return [] 
+         # No history yet
+        except Exception as e:
+            print(f"Error reading history: {e}")
+            return []
 
-async def run_agent(deps: Deps, query: str, history=None):
-    history = []
+    async def save_history(self, history_id: str, messages):
+        """Save chat history to file."""
+        async with aiofiles.open(f"./chat_histories/{history_id}.json", "w") as f:
+            json_dump = json.dumps(to_jsonable_python(messages), indent=2)
+            await f.write(json_dump)
 
-    if history:
-        history = history
-    elif deps.user_email:
-        history = await get_history(deps.user_email)
+    async def delete_history(self, history_id: str):
+        """Delete chat history file."""
+        async with aiofiles.open(f"./chat_histories/{history_id}.json", "w") as f:
+            await f.write("[]")
 
-    result = await agent.run(query, deps=deps, message_history=history)
-    if deps.user_email:
-        await save_history(deps.user_email, result.all_messages())
-    else:
-        history = result.all_messages()
-    return result
+    async def run_agent(self, deps: Deps, query: str, history=None):
+        """Run the agent with the given query and dependencies."""
+        if history is None:
+            history = []
+
+        if history:
+            history = history
+        elif deps.user_email:
+            history = await self.get_history(deps.user_email)
+
+        result = await self.agent.run(query, deps=deps, message_history=history)
+        
+        if deps.user_email:
+            await self.save_history(deps.user_email, result.all_messages())
+        else:
+            history = result.all_messages()
+            
+        return result
 
 
 if __name__ == "__main__":
 
-    deps = Deps(credentials=None, user_email="umaismuhammad99")
-    result = asyncio.run(run_agent(deps, "What can you do for me"))
+    gmail_agent = GmailAgent()
+
+    # Create dependencies
+    deps = Deps(
+        credentials=None,
+        user_email="user@example.com", 
+        connected=False
+    )
+
+    # Run the agent
+    result = asyncio.run(gmail_agent.run_agent(deps, "What was my last query?"))
+    print(result.output)

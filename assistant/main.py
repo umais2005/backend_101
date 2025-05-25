@@ -1,18 +1,70 @@
-from fastapi import FastAPI, HTTPException, Query, Request
+import json
+from fastapi import FastAPI, HTTPException, Query, Request, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
+from mistralai import Chat
 from pydantic import BaseModel
+
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
+from contextlib import asynccontextmanager
 from googleapiclient.discovery import build
-from src.agent.main import agent, Deps
+from pydantic_ai import UnexpectedModelBehavior
+from src.agent.main import GmailAgent, Deps
 import httpx
+from typing import Literal,  List, Optional
 from dotenv import load_dotenv
-load_dotenv()
 import os
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
+load_dotenv()
+
+class AppState:
+    def __init__(self):
+        self.gmail_agent: Optional[GmailAgent] = None
+
+class ChatMessage(BaseModel):
+    message: str
+
+
+# Models for data
+class ChatResponse(BaseModel):
+    message: str
+    role : Literal["user", "assistant"]
+    timestamp: Optional[str] = None
+
+
+class MessageHistory(BaseModel):
+    messages: List[ChatResponse] | None = None
+    total_count: int
+
+
+app_state = AppState()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize the GmailAgent when the application starts."""
+    print("Starting up Gmail Agent...")
+    try:
+        app_state.gmail_agent = GmailAgent()
+        print("Gmail Agent initialized successfully")
+    except Exception as e:
+        print(f"Failed to initialize Gmail Agent: {e}")
+        raise
+    
+    yield
+    
+    print("Shutting down Gmail Agent...")
 
 # Create the FastAPI app
-app = FastAPI(title="My Personal Chat App")
+app = FastAPI(title="My Personal Chat App", lifespan=lifespan)
 
 # Google OAuth2 credentials
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -48,9 +100,7 @@ user_info = None
 gmail_service = None
 calendar_service = None
 
-# Models for data
-class ChatMessage(BaseModel):
-    message: str
+
 
 # Step 1: Start the login process
 @app.get("/login")
@@ -140,7 +190,6 @@ async def get_user_info(user_credentials):
             return None
 
     try:
-        calendar_service = build("calendar", "v3", credentials=user_credentials)
         
         # Use the credentials to access the Google OAuth2 API
         service = build('oauth2', 'v2', credentials=user_credentials)
@@ -150,32 +199,123 @@ async def get_user_info(user_credentials):
     except Exception as e:
         print(f"Error getting user info: {e}")
         return None
+    
+def get_gmail_agent() -> GmailAgent:
+    """Dependency to get the Gmail agent instance."""
+    if app_state.gmail_agent is None:
+        raise HTTPException(status_code=500, detail="Gmail Agent not initialized")
+    return app_state.gmail_agent
+
+def to_chat_message_history(msgs : list[ModelMessage]) -> MessageHistory:
+    final_msgs = []
+    for m in msgs:
+        first_part = m.parts[0]
+        if isinstance(m, ModelRequest):
+            if isinstance(first_part, UserPromptPart):
+                assert isinstance(first_part.content, str)
+                final_msgs.append(m)       
+        
+        elif isinstance(m, ModelResponse):
+            if isinstance(first_part, TextPart):
+                final_msgs.append(m)
+        else:
+            raise UnexpectedModelBehavior(f'Unexpected message type for chat app: {m}')
+        
+        return MessageHistory(
+            messages=final_msgs,
+            total_count=len(final_msgs)
+        )
+
+@app.get("/chat/messages", response_model=MessageHistory)
+async def get_chat_messages(
+    gmail_agent: GmailAgent = Depends(get_gmail_agent)
+):
+    """Get chat message history for the current user."""
+    global user_info
+    
+    if not user_logged_in or not user_info:
+        raise HTTPException(status_code=401, detail="Please login with Google first")
+    
+    user_email = user_info.get("email")
+    if not user_email:
+        # raise HTTPException(status_code=400, detail="User email not available")
+        return MessageHistory(messages=[], total_count=0)
+    
+    try:
+        msgs = await gmail_agent.get_history(user_email)
+        filtered_msgs = to_chat_message_history(msgs)
+        return MessageHistory(
+            messages=filtered_msgs,
+            total_count=len(msgs)
+        )
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve messages: {str(e)}")
+
+
+@app.delete("/chat/messages")
+async def delete_chat_messages(
+    gmail_agent: GmailAgent = Depends(get_gmail_agent)
+):
+    """Delete chat message history for the current user."""
+    global user_info
+    
+    if not user_logged_in or not user_info:
+        raise HTTPException(status_code=401, detail="Please login with Google first")
+    
+    user_email = user_info.get("email")
+    if not user_email:
+        raise HTTPException(status_code=400, detail="User email not available")
+    
+    try:
+        await gmail_agent.delete_history(user_email)
+        return {"message": "Chat history deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete messages: {str(e)}")
+
 
 # Step 3: Your chat endpoint that uses Google data
-@app.post("/chat")
-async def chat(message: ChatMessage):
+@app.post("/chat", response_model=ChatResponse)
+async def chat(
+    message: ChatMessage,
+    gmail_agent: GmailAgent = Depends(get_gmail_agent)
+):
     """
-    This is your main chat endpoint
+    Main chat endpoint that uses Google data.
     It can use your Google credentials to access emails, calendar, etc.
     """
     global user_logged_in, google_access_token, user_info, user_credentials
-    connected = bool(user_info)
     
-    if user_logged_in:
-        deps = Deps(credentials=user_credentials, user_email=user_info.get("email") if user_info else None, connected=connected)
-    else:
-        deps = Deps(credentials=None, user_email=None)
-    
-    result = await agent.run(message.message, deps=deps)
-    return result
-    
-    # Check if you're logged in
-    # if not user_logged_in:
-    #     raise HTTPException(status_code=401, detail="Please login with Google first. Go to /login")
-    # Run the agent with the message
-    # result = await agent.run_stream(message.message, deps=deps)
-    
-     
+    try:
+        # Create dependencies based on user login status
+        connected = bool(user_info)
+        
+        if user_logged_in and user_credentials:
+            deps = Deps(
+                credentials=user_credentials, 
+                user_email=user_info.get("email") if user_info else None, 
+                connected=connected
+            )
+        else:
+            deps = Deps(
+                credentials=None, 
+                user_email=None, 
+                connected=False
+            )
+        
+        # Run the agent with the message
+        result = await gmail_agent.run_agent(deps, message.message)
+        print(result.output)
+        latest_msg = result.all_messages()[-1]
+        # Extract response text from result
+        return ChatResponse(
+            message=latest_msg.parts[0].content if latest_msg.parts else "No response",
+            role="assistant",
+            timestamp=latest_msg.timestamp if hasattr(latest_msg, 'timestamp') else None
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
 
 
 # Check if you're logged in

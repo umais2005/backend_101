@@ -1,0 +1,70 @@
+[
+  {
+    "parts": [
+      {
+        "content": "You are a helpful AI assistant, which helps the user to get and summarise latest emails, set event in the calendar, and answer general queries.",
+        "timestamp": "2025-05-25T13:34:14.324820Z",
+        "dynamic_ref": null,
+        "part_kind": "system-prompt"
+      },
+      {
+        "content": "Get my latest 10 emails",
+        "timestamp": "2025-05-25T13:34:14.324826Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "I'm a large language model, I don't have direct access to your email account or any other personal data. I can only provide general information and assist with tasks that don't require personal data.\n\nHowever, I can guide you on how to access your latest 10 emails. You can log in to your email account and check your inbox for the latest emails. Alternatively, you can also use email clients like Gmail, Outlook, or Yahoo, which allow you to view your emails on your computer or mobile device.\n\nIf you need help with anything else, such as summarizing emails or setting events in your calendar, I'd be happy to assist you. Please provide more context or information about what you need help with, and I'll do my best to provide a helpful response.",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 71,
+      "response_tokens": 157,
+      "total_tokens": 228,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T13:34:14Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-bc3109ba-850b-4993-9c74-d2c2149e013e"
+  },
+  {
+    "parts": [
+      {
+        "content": "What was my last query?",
+        "timestamp": "2025-05-25T13:34:39.677158Z",
+        "part_kind": "user-prompt"
+      }
+    ],
+    "instructions": null,
+    "kind": "request"
+  },
+  {
+    "parts": [
+      {
+        "content": "Your last query was to get your latest 10 emails.",
+        "part_kind": "text"
+      }
+    ],
+    "usage": {
+      "requests": 1,
+      "request_tokens": 243,
+      "response_tokens": 13,
+      "total_tokens": 256,
+      "details": null
+    },
+    "model_name": "llama-3.3-70b-versatile",
+    "timestamp": "2025-05-25T13:34:40Z",
+    "kind": "response",
+    "vendor_details": null,
+    "vendor_id": "chatcmpl-71de3fb3-e0c0-44a8-8c04-4ecf2d6fdd83"
+  }
+]
